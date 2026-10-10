@@ -16,8 +16,8 @@ type Dash = {
   products_count: number;
   customers_count: number;
   invoices_by_status: Record<string, number>;
-  issued_total: string;
-  invoices_by_status_count?: number;
+  invoices_issued_in_period: number;
+  invoices_total_in_period: string;
   low_stock: LowStock[];
   recent_movements: Movement[];
 };
@@ -47,7 +47,7 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="الكوموندات (30 يوم)" value={String(data.orders_in_period)} sub={`الإجمالي: ${ordersTotal}`} icon={ClipboardList} tone="teal" />
         <StatCard title="الفواتير الصادرة" value={String(data.invoices_by_status?.issued ?? 0)} sub={`الإجمالي: ${invoicesTotal}`} icon={FileText} tone="blue" />
-        <StatCard title="مدخول الفواتير (30 يوم)" value={formatMoney(data.issued_total)} icon={Boxes} tone="green" />
+        <StatCard title="مدخول الفواتير (30 يوم)" value={formatMoney(data.invoices_total_in_period)} icon={Boxes} tone="green" />
         <StatCard title="منتجات تحت العتبة" value={String(data.low_stock?.length ?? 0)} icon={AlertTriangle} tone="amber" />
       </div>
 
