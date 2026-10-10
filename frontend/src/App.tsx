@@ -13,6 +13,7 @@ import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import Users from "./pages/Users";
 import PublicOrder from "./pages/PublicOrder";
+import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/public/order" element={<PublicOrder />} />
+      <Route path="/public/track" element={<TrackOrder />} />
       <Route element={<Layout />}>
         <Route index element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute perm="view_authorized_records"><Orders /></ProtectedRoute>} />
