@@ -11,7 +11,7 @@ import { formatMoney } from "@/lib/utils";
 
 type PublicProduct = {
   id: number; sku: string; name: string; name_ar?: string; name_fr?: string;
-  category?: string; base_unit: string; price: string;
+  category?: string; base_unit: string; price: string; image_url?: string;
 };
 
 export default function PublicOrder() {
@@ -55,14 +55,23 @@ export default function PublicOrder() {
     });
   }
 
-  const grouped = useMemo(() => {
+  const [category, setCategory] = useState<string>("all");
+  const categories = useMemo(() => {
+    const s = new Set(products.map(p=>p.category || "أخرى"));
+    return ["all", ...Array.from(s)];
+  }, [products]);
+  const filtered = useMemo(() => {
+    if (category==="all") return products;
+    return products.filter(p => (p.category||"أخرى")===category);
+  }, [products, category]);
+  const groupedFiltered = useMemo(() => {
     const g: Record<string, PublicProduct[]> = {};
-    products.forEach((p) => {
+    filtered.forEach((p) => {
       const k = p.category || "أخرى";
       (g[k] ||= []).push(p);
     });
     return g;
-  }, [products]);
+  }, [filtered]);
 
   async function submit() {
     setErr("");
@@ -125,32 +134,48 @@ export default function PublicOrder() {
       <main className="mx-auto grid max-w-5xl gap-4 p-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {loading ? <PageLoader /> : products.length === 0 ? <EmptyState title="ما كاينش منتجات متوفرة" /> : (
-            Object.entries(grouped).map(([cat, list]) => (
-              <Card key={cat}>
-                <CardHeader><CardTitle>{cat}</CardTitle></CardHeader>
-                <CardContent className="divide-y divide-slate-100 p-0">
-                  {list.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-800">{p.name_ar || p.name}</p>
-                        <p className="text-xs text-slate-400">
-                          <span className="code">{p.sku}</span> — {formatMoney(p.price)} / {p.base_unit}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        {cart[p.id] ? (
-                          <>
-                            <Button variant="outline" size="icon" onClick={() => add(p.id, -1)}><Minus className="h-3.5 w-3.5" /></Button>
-                            <span className="w-8 text-center font-medium">{cart[p.id]}</span>
-                          </>
-                        ) : null}
-                        <Button size="icon" onClick={() => add(p.id, 1)}><Plus className="h-3.5 w-3.5" /></Button>
-                      </div>
-                    </div>
+            <>
+              <Card>
+                <CardHeader><CardTitle>الفئات</CardTitle></CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {categories.map(c=>(
+                    <Button key={c} size="sm" variant={category===c?"default":"outline"} onClick={()=>setCategory(c)}>{c==="all"?"الكل":c}</Button>
                   ))}
                 </CardContent>
               </Card>
-            ))
+              {Object.entries(groupedFiltered).map(([cat, list]) => (
+                <Card key={cat}>
+                  <CardHeader><CardTitle>{cat}</CardTitle></CardHeader>
+                  <CardContent className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 p-3">
+                    {list.map((p) => (
+                      <div key={p.id} className="flex flex-col rounded-lg border border-slate-100 bg-white shadow-sm overflow-hidden">
+                        {p.image_url ? (
+                          <img src={p.image_url} alt={p.name_ar||p.name} className="h-40 w-full object-cover" loading="lazy"/>
+                        ) : (
+                          <div className="flex h-40 w-full items-center justify-center bg-slate-50 text-slate-300">—</div>
+                        )}
+                        <div className="p-3 flex-1 flex flex-col gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-800 line-clamp-1">{p.name_ar || p.name}</p>
+                            <p className="text-xs text-slate-400"><span className="code">{p.sku}</span> — {formatMoney(p.price)} / {p.base_unit}</p>
+                          </div>
+                          <div className="mt-auto flex items-center justify-between gap-2">
+                            {cart[p.id] ? (
+                              <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={()=>add(p.id,-1)}><Minus className="h-3.5 w-3.5"/></Button>
+                                <span className="w-6 text-center font-medium">{cart[p.id]}</span>
+                                <Button size="icon" onClick={()=>add(p.id,1)}><Plus className="h-3.5 w-3.5"/></Button>
+                              </div>
+                            ) : <div/>}
+                            <Button size="sm" onClick={()=>add(p.id,1)}><Plus className="h-3.5 w-3.5 ml-1"/> أطلب</Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </>
           )}
         </div>
 

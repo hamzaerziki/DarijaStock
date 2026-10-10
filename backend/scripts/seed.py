@@ -22,14 +22,18 @@ from app.models import Product, ProductAlias, ProductUnit, Warehouse  # noqa: E4
 from app.services.text import normalize  # noqa: E402
 
 DEMO_PRODUCTS = [
-    ("DEMO-COLA", "Coca-Cola 1L", "كوكا 1 لتر", "Coca-Cola 1 litre", "Boissons", "MAD", "12.00",
-     ["كوكا", "coca", "cola", "كوكا كولا"]),
-    ("DEMO-EAU", "Eau minérale 1.5L", "ما معدني 1.5 لتر", "Eau minérale 1.5L", "Boissons", "MAD", "6.00",
-     ["ما", "eau", "ماء", "لتر"]),
+    ("DEMO-COLA", "Coca-Cola 1L", "كوكاكولا 1 لتر", "Coca-Cola 1 litre", "Boissons", "MAD", "12.00",
+     ["coca", "cola", "كوكا", "كوكاكولا"],
+     "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?q=80&w=480&auto=format&fit=crop"),
+    ("DEMO-EAU", "Eau minérale 1.5L", "ماء معدني 1.5 لتر", "Eau minérale 1.5L", "Boissons", "MAD", "6.00",
+     ["eau", "ماء", "ماء معدني"],
+     "https://images.unsplash.com/photo-1526401485004-46910ecc8e51?q=80&w=480&auto=format&fit=crop"),
     ("DEMO-SUCRE", "Sucre 1kg", "سكر 1 كيلو", "Sucre en poudre 1kg", "Épicerie", "MAD", "11.00",
-     ["سكر", "sucre", "sucre 1kg"]),
-    ("DEMO-HUILE", "Huile 5L", "زيت 5 لتر", "Huile de table 5L", "Épicerie", "MAD", "75.00",
-     ["زيت", "huile", "زيت 5 لتر"]),
+     ["sucre", "سكر", "سكر 1kg"],
+     "https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=480&auto=format&fit=crop"),
+    ("DEMO-HUILE", "Huile 5L", "زيت 5 لترات", "Huile de table 5L", "Épicerie", "MAD", "75.00",
+     ["huile", "زيت", "زيت 5 لتر"],
+     "https://images.unsplash.com/photo-1509315703195-529879416a7d?q=80&w=480&auto=format&fit=crop"),
 ]
 
 
@@ -42,7 +46,7 @@ def main() -> int:
             db.flush()
             print("Created default warehouse MAIN")
 
-        for sku, name, name_ar, name_fr, category, cur, price, aliases in DEMO_PRODUCTS:
+        for sku, name, name_ar, name_fr, category, cur, price, aliases, *img in DEMO_PRODUCTS:
             if db.scalar(select(Product).where(Product.sku == sku)):
                 continue
             product = Product(
@@ -50,8 +54,8 @@ def main() -> int:
                 base_unit="piece", price=Decimal(price), tax_rate=Decimal("0.00"),
                 reorder_threshold=Decimal("10"),
             )
-            product.units.append(ProductUnit(code="piece", name="pièce", factor_to_base=Decimal("1"), is_base=True))
-            product.units.append(ProductUnit(code="carton", name="carton", factor_to_base=Decimal("12")))
+            if img:
+                product.image_url = str(img[0])
             for a in aliases:
                 product.aliases.append(ProductAlias(alias=a, normalized=normalize(a)))
             db.add(product)

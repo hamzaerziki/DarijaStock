@@ -18,6 +18,7 @@ class Product(Base, TimestampMixin):
     name_fr: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(String(120), index=True)
+    image_url: Mapped[str | None] = mapped_column(String(500))
 
     base_unit: Mapped[str] = mapped_column(String(30), nullable=False, default="piece")
     price: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))

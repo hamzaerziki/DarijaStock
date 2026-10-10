@@ -34,6 +34,7 @@ class ProductBase(BaseModel):
     name_fr: str | None = None
     description: str | None = None
     category: str | None = None
+    image_url: str | None = Field(default=None, max_length=500)
     base_unit: str = Field(default="piece", max_length=30)
     price: Decimal = Field(ge=0, default=Decimal("0.00"))
     tax_rate: Decimal | None = Field(default=None, ge=0, le=100)
@@ -54,6 +55,7 @@ class ProductUpdate(BaseModel):
     name_fr: str | None = None
     description: str | None = None
     category: str | None = None
+    image_url: str | None = Field(default=None, max_length=500)
     base_unit: str | None = None
     price: Decimal | None = Field(default=None, ge=0)
     tax_rate: Decimal | None = Field(default=None, ge=0, le=100)
@@ -77,6 +79,7 @@ class PublicProduct(BaseModel):
     name_ar: str | None = None
     name_fr: str | None = None
     category: str | None = None
+    image_url: str | None = None
     base_unit: str
     price: Decimal
     model_config = {"from_attributes": True}
