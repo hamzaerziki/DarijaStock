@@ -76,11 +76,15 @@ export default function PublicOrder() {
   async function submit() {
     setErr("");
     if (!name.trim() || phone.trim().length < 6) {
-      setErr("خاص الإسم ورقم الهاتف صحيح / Nom et téléphone obligatoires");
+      setErr("اكتب الإسم ورقم الهاتف صحيح / Remplis ton nom et ton numéro de téléphone");
+      return;
+    }
+    if (!/^0[5-7]\d{8}$/.test(phone.replace(/\s+/g,''))) {
+      setErr("رقم الهاتف ماشي صحيح (مثال: 0612345678)");
       return;
     }
     if (count === 0) {
-      setErr("زيد على الأقل منتج واحد / Ajoutez au moins un produit");
+      setErr("زيد على الأقل منتج واحد / Ajoute au moins un produit");
       return;
     }
     setSending(true);
@@ -136,11 +140,16 @@ export default function PublicOrder() {
           {loading ? <PageLoader /> : products.length === 0 ? <EmptyState title="ما كاينش منتجات متوفرة" /> : (
             <>
               <Card>
-                <CardHeader><CardTitle>الفئات</CardTitle></CardHeader>
+                <CardHeader><CardTitle>نختارو فئة</CardTitle></CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
+              {categories.length>0 && (
+                <div className="flex flex-wrap items-center gap-2 px-1">
+                  <span className="text-sm text-slate-600">فلتر حسب الفئة:</span>
                   {categories.map(c=>(
-                    <Button key={c} size="sm" variant={category===c?"default":"outline"} onClick={()=>setCategory(c)}>{c==="all"?"الكل":c}</Button>
+                    <Button key={c} size="sm" variant={category===c?"default":"outline"} onClick={()=>setCategory(c)} className="h-9">{c==="all"?"كلشي":c}</Button>
                   ))}
+                </div>
+              )}
                 </CardContent>
               </Card>
               {Object.entries(groupedFiltered).map(([cat, list]) => (
@@ -154,20 +163,21 @@ export default function PublicOrder() {
                         ) : (
                           <div className="flex h-40 w-full items-center justify-center bg-slate-50 text-slate-300">—</div>
                         )}
-                        <div className="p-3 flex-1 flex flex-col gap-2">
+                        <div className="p-4 flex-1 flex flex-col gap-3">
                           <div className="min-w-0">
-                            <p className="font-medium text-slate-800 line-clamp-1">{p.name_ar || p.name}</p>
-                            <p className="text-xs text-slate-400"><span className="code">{p.sku}</span> — {formatMoney(p.price)} / {p.base_unit}</p>
+                            <p className="text-base font-semibold text-slate-800 line-clamp-2">{p.name_ar || p.name}</p>
+                            <p className="mt-1 text-sm font-bold text-emerald-700">{formatMoney(p.price)} / {p.base_unit}</p>
                           </div>
-                          <div className="mt-auto flex items-center justify-between gap-2">
+                          <div className="mt-auto">
                             {cart[p.id] ? (
-                              <div className="flex items-center gap-2">
-                                <Button variant="outline" size="icon" onClick={()=>add(p.id,-1)}><Minus className="h-3.5 w-3.5"/></Button>
-                                <span className="w-6 text-center font-medium">{cart[p.id]}</span>
-                                <Button size="icon" onClick={()=>add(p.id,1)}><Plus className="h-3.5 w-3.5"/></Button>
+                              <div className="flex items-center justify-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                <Button variant="outline" size="lg" className="h-12 w-12" onClick={()=>add(p.id,-1)} aria-label="نقص"><Minus className="h-5 w-5"/></Button>
+                                <span className="w-10 text-center text-xl font-bold">{cart[p.id]}</span>
+                                <Button size="lg" className="h-12 w-12" onClick={()=>add(p.id,1)} aria-label="زيد"><Plus className="h-5 w-5"/></Button>
                               </div>
-                            ) : <div/>}
-                            <Button size="sm" onClick={()=>add(p.id,1)}><Plus className="h-3.5 w-3.5 ml-1"/> أطلب</Button>
+                            ) : (
+                              <Button size="lg" className="h-12 w-full" onClick={()=>add(p.id,1)}><Plus className="h-5 w-5 ml-2"/> أطلب دابا</Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -181,15 +191,15 @@ export default function PublicOrder() {
 
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> الطلبية</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-6 w-6" /> طلبك دابا</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label required>الاسم الكامل</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="الإسم و النسب" />
+                <Label required>الإسم الكامل</Label>
+                <Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="كتب اسمك الكامل" className="h-12 text-base"/>
               </div>
               <div>
                 <Label required>رقم الهاتف</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="06XXXXXXXX" className="code" />
+                <Input value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="مثال: 0612345678" className="h-12 text-base code" inputMode="tel"/>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -210,7 +220,7 @@ export default function PublicOrder() {
                 <span>{formatMoney(total)}</span>
               </div>
               {err && <FieldError>{err}</FieldError>}
-              <Button className="w-full" loading={sending} onClick={submit}>إرسال الطلبية</Button>
+              <Button className="h-14 w-full text-lg font-bold" loading={sending} onClick={submit}>أرسل الطلبية الآن</Button>
             </CardContent>
           </Card>
         </div>
