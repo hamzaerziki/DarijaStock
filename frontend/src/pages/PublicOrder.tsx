@@ -26,6 +26,7 @@ export default function PublicOrder() {
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
   const [sending, setSending] = useState(false);
+  const [step, setStep] = useState<"products" | "checkout">("products");
   const [done, setDone] = useState<{ order_number: string } | null>(null);
 
   useEffect(() => {
