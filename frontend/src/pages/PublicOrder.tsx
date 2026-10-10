@@ -172,11 +172,11 @@ export default function PublicOrder() {
                           </div>
                           <div className="mt-auto">
                             {cart[p.id] ? (
-                              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                <Button variant="outline" size="lg" className="h-14 w-14" onClick={()=>add(p.id,-1)} aria-label="نقص واحد"><Minus className="h-6 w-6"/></Button>
-                                <span className="w-12 text-center text-2xl font-bold">{cart[p.id]}</span>
-                                <Button size="lg" className="h-14 w-14" onClick={()=>add(p.id,1)} aria-label="زيد واحد"><Plus className="h-6 w-6"/></Button>
-                              </div>
+                                <div className="flex items-center justify-between gap-3 rounded-lg border-2 border-slate-300 bg-white p-3 shadow-sm">
+                                  <Button variant="outline" size="lg" className="h-16 w-16" onClick={() => add(p.id, -1)} aria-label="نقص واحد"><Minus className="h-7 w-7" /></Button>
+                                  <span className="w-16 text-center text-3xl font-bold">{cart[p.id]}</span>
+                                  <Button size="lg" className="h-16 w-16" onClick={() => add(p.id, 1)} aria-label="زيد واحد"><Plus className="h-7 w-7" /></Button>
+                                </div>
                             ) : (
                               <Button size="lg" className="h-14 w-full text-base" onClick={()=>add(p.id,1)}><Plus className="h-5 w-5 ml-2"/> أطلب دابا</Button>
                             )}
