@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, apiError, Page } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
@@ -26,6 +27,7 @@ export default function Orders() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const { push } = useToast();
 
   async function load() {
@@ -98,7 +100,7 @@ export default function Orders() {
                       <td><OrderStatus status={o.status} /></td>
                       <td className="text-left font-medium">{formatMoney(o.total)}</td>
                       <td className="text-left">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/orders/${o.id}`)}>
                           <FileText className="h-4 w-4" /> تفاصيل
                         </Button>
                       </td>
