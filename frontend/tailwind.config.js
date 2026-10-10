@@ -27,8 +27,8 @@ export default {
         muted: "#64748b",
       },
       fontFamily: {
-        sans: ["Tahoma", "Segoe UI", "system-ui", "-apple-system", "sans-serif"],
-        arabic: ["Tahoma", "Segoe UI", "Arial", "sans-serif"],
+        sans: ["Cairo", "Noto Sans Arabic", "Tahoma", "Segoe UI", "system-ui", "-apple-system", "sans-serif"],
+        arabic: ["Cairo", "Noto Sans Arabic", "Tahoma", "Segoe UI", "Arial", "sans-serif"],
       },
       borderRadius: { lg: "0.6rem", md: "0.5rem", sm: "0.35rem" },
       boxShadow: {
