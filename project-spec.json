@@ -1,0 +1,321 @@
+{
+    "name": "DarijaStock",
+    "purpose": "Build a production-minded Moroccan order, stock and invoicing management application.",
+    "instructions": {
+        "implementation_style": "Incremental, tested, modular and maintainable",
+        "must_have_real_backend": true,
+        "must_have_database": true,
+        "must_not_be_ui_only": true,
+        "whatsapp_api_required": false,
+        "paid_ocr_required": false,
+        "initial_architecture": "Modular monolith",
+        "initial_deployment": "Docker Compose"
+    },
+    "design": {
+        "product_style": "Professional business SaaS",
+        "theme": "Light",
+        "primary_colors": {
+            "navigation": "Dark navy",
+            "accent": "Teal",
+            "background": "White and light gray",
+            "alerts": "Accessible semantic colors"
+        },
+        "layout": {
+            "sidebar": "Persistent desktop navigation, collapsible on smaller screens",
+            "header": "Page title, global search, current user and notifications",
+            "content": "Consistent page spacing, clear hierarchy and compact data tables",
+            "forms": "Labeled inputs with visible validation",
+            "tables": "Search, filters, sorting, pagination and row actions",
+            "modals": "Use for focused actions, not oversized multi-step workflows"
+        },
+        "language": {
+            "default": "Moroccan Darija",
+            "additional": [
+                "French",
+                "Arabic"
+            ],
+            "rtl_support": true,
+            "preserve_product_codes": true,
+            "preserve_source_messages": true
+        },
+        "navigation": [
+            "الرئيسية",
+            "الكوموندات",
+            "استيراد الميساجات",
+            "المنتوجات",
+            "الستوك",
+            "الزبناء",
+            "الفواتير",
+            "التقارير",
+            "المستخدمين والإعدادات"
+        ]
+    },
+    "stack": {
+        "frontend": [
+            "React",
+            "TypeScript",
+            "Vite",
+            "Tailwind CSS",
+            "shadcn/ui"
+        ],
+        "backend": [
+            "Python",
+            "FastAPI",
+            "Pydantic",
+            "SQLAlchemy"
+        ],
+        "database": [
+            "PostgreSQL",
+            "Alembic"
+        ],
+        "optional_workers": [
+            "Celery",
+            "Redis"
+        ],
+        "documents": [
+            "HTML invoice templates",
+            "WeasyPrint or tested alternative"
+        ],
+        "testing": [
+            "Pytest",
+            "Frontend component and integration tests"
+        ],
+        "deployment": [
+            "Docker",
+            "Docker Compose"
+        ]
+    },
+    "roles": {
+        "admin": [
+            "manage_users",
+            "manage_products",
+            "manage_customers",
+            "manage_inventory",
+            "manage_orders",
+            "approve_orders",
+            "issue_invoices",
+            "view_reports",
+            "manage_settings"
+        ],
+        "order_operator": [
+            "create_orders",
+            "import_messages",
+            "edit_unconfirmed_orders",
+            "view_permitted_customers",
+            "view_permitted_products"
+        ],
+        "stock_manager": [
+            "view_inventory",
+            "receive_stock",
+            "dispatch_stock",
+            "manage_returns",
+            "request_or_authorize_adjustments_as_configured"
+        ],
+        "order_approver": [
+            "review_orders",
+            "approve_orders",
+            "reject_orders"
+        ],
+        "invoice_operator": [
+            "prepare_invoice_drafts",
+            "issue_invoices_when_authorized",
+            "view_invoice_history"
+        ],
+        "read_only": [
+            "view_authorized_records",
+            "view_authorized_reports"
+        ]
+    },
+    "modules": {
+        "dashboard": {
+            "requirements": [
+                "Order counts by status",
+                "Low-stock alerts",
+                "Available and reserved stock summaries",
+                "Recent movements",
+                "Invoice activity",
+                "Date-filtered summaries"
+            ]
+        },
+        "products": {
+            "requirements": [
+                "Unique SKU",
+                "Product name and description",
+                "Darija, Arabic and French aliases",
+                "Unit definitions and conversions",
+                "Approved prices",
+                "Tax category",
+                "Reorder threshold",
+                "Active status"
+            ]
+        },
+        "customers": {
+            "requirements": [
+                "Customer code",
+                "Name",
+                "Contact details",
+                "Billing and delivery details",
+                "Applicable tax identifiers",
+                "Order history"
+            ]
+        },
+        "stock": {
+            "requirements": [
+                "Opening stock",
+                "Receipts",
+                "Reservations",
+                "Dispatches",
+                "Returns",
+                "Authorized adjustments",
+                "Movement ledger",
+                "Low-stock alerts"
+            ],
+            "rules": [
+                "Do not subtract physical stock for a draft order.",
+                "Reserve stock at the configured business event.",
+                "Subtract physical stock at the defined dispatch event.",
+                "Prevent negative stock by default.",
+                "Use atomic transactions and concurrency-safe updates.",
+                "Do not delete historical movements."
+            ]
+        },
+        "orders": {
+            "requirements": [
+                "Manual order entry",
+                "Single-message paste",
+                "Multi-order batch intake",
+                "Customer assignment",
+                "Product and unit matching",
+                "Price validation",
+                "Review and approval",
+                "Delivery status",
+                "Cancellation history"
+            ],
+            "statuses": [
+                "new",
+                "needs_review",
+                "confirmed",
+                "reserved",
+                "preparing",
+                "fulfilled",
+                "cancelled"
+            ]
+        },
+        "message_parser": {
+            "requirements": [
+                "Parse pasted text without OCR",
+                "Support Darija, Arabic, French and Latin transliteration",
+                "Use product aliases and deterministic rules",
+                "Optionally use an AI model for difficult text",
+                "Return schema-validated structured data",
+                "Preserve the original message",
+                "Mark missing and ambiguous information",
+                "Never invent product IDs, prices or quantities",
+                "Never calculate final invoice totals using AI"
+            ]
+        },
+        "batch_processing": {
+            "requirements": [
+                "Create and track import batches",
+                "Split messages into individual orders",
+                "Allow manual correction of order boundaries",
+                "Detect potential duplicates",
+                "Provide ready and exception queues",
+                "Support eligible bulk review",
+                "Generate batch reports",
+                "Support safe retries"
+            ]
+        },
+        "invoices": {
+            "requirements": [
+                "Draft invoice",
+                "Authorized approval",
+                "Unique invoice number",
+                "Customer and product snapshots",
+                "Decimal arithmetic",
+                "Tax and discount rules",
+                "PDF generation",
+                "Issue and correction history"
+            ]
+        },
+        "direct_web_orders": {
+            "requirements": [
+                "Provide a separate customer order form",
+                "Show only products and prices approved for customer display",
+                "Validate all submissions on the backend",
+                "Create an order draft or pending order",
+                "Require business approval before stock allocation or invoice issuance when configured",
+                "Do not expose internal inventory data or employee functions"
+            ]
+        }
+    },
+    "data_entities": [
+        "User",
+        "Role",
+        "Customer",
+        "Product",
+        "ProductAlias",
+        "ProductUnit",
+        "Warehouse",
+        "InventoryMovement",
+        "InventoryReservation",
+        "ImportBatch",
+        "SourceMessage",
+        "Order",
+        "OrderItem",
+        "Invoice",
+        "InvoiceItem",
+        "AuditEvent"
+    ],
+    "security": {
+        "backend_authorization": true,
+        "least_privilege": true,
+        "server_side_validation": true,
+        "secure_password_hashing": true,
+        "secure_session_management": true,
+        "https_in_production": true,
+        "secrets_in_environment": true,
+        "audit_sensitive_actions": true,
+        "tested_backups": true,
+        "idempotent_critical_operations": true,
+        "protect_against_concurrent_stock_updates": true,
+        "protect_uploaded_files": true,
+        "avoid_sensitive_logs": true
+    },
+    "quality_requirements": {
+        "financial_calculations": "Backend Decimal arithmetic",
+        "inventory_integrity": "Transactional movement ledger",
+        "invoice_integrity": "Preserve issued snapshots and controlled corrections",
+        "error_handling": "Actionable messages without exposing secrets",
+        "performance": "Pagination, indexes and measured optimization",
+        "scaling": "Support multiple concurrent employees and add workers when justified",
+        "observability": "Structured logs, health checks and job failure reporting",
+        "maintainability": "Typed interfaces, modular services and documented migrations"
+    },
+    "implementation_phases": [
+        "Inspect repository and establish project structure",
+        "Build frontend shell and backend foundation",
+        "Implement authentication and permissions",
+        "Implement products, units and customers",
+        "Implement stock movements and reservations",
+        "Implement manual orders and WhatsApp paste",
+        "Implement parsing, aliases and batch review",
+        "Implement invoice generation",
+        "Implement direct customer order form",
+        "Add reports, hardening and pilot tests"
+    ],
+    "acceptance_criteria": [
+        "Real database-backed application",
+        "Darija employee interface",
+        "Manual order creation works",
+        "WhatsApp message paste works without OCR",
+        "Batch review preserves original messages",
+        "Products and units are matched against the catalog",
+        "Uncertain data requires review",
+        "Stock movements are traceable and safe under concurrency",
+        "Invoices are calculated on the backend",
+        "Permissions are enforced by the API",
+        "Core workflows have automated tests",
+        "Application starts using documented Docker instructions"
+    ]
+}

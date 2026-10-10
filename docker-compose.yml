@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: darjastock
+      POSTGRES_PASSWORD: darjastock
+      POSTGRES_DB: darjastock
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U darjastock -d darjastock"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://darjastock:darjastock@db:5432/darjastock
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-please-use-a-long-random-value}
+      ENVIRONMENT: production
+      CORS_ORIGINS: http://localhost,http://localhost:5173,http://localhost:3000
+      DEFAULT_TAX_RATE: ${DEFAULT_TAX_RATE:-0.00}
+      CURRENCY: ${CURRENCY:-MAD}
+      RESERVE_ON_CONFIRM: ${RESERVE_ON_CONFIRM:-true}
+      ALLOW_NEGATIVE_STOCK: ${ALLOW_NEGATIVE_STOCK:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
