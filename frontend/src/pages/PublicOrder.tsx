@@ -79,10 +79,11 @@ export default function PublicOrder() {
       setErr("اكتب الإسم ورقم الهاتف صحيح / Remplis ton nom et ton numéro de téléphone");
       return;
     }
-    if (!/^0[5-7]\d{8}$/.test(phone.replace(/\s+/g,''))) {
-      setErr("رقم الهاتف ماشي صحيح (مثال: 0612345678)");
+    if (!/^0[5-7][0-9]{8}$/.test(phone.replace(/\D/g,''))) {
+      setErr("رقم الهاتف ماشي صحيح. خصو يبدا ب06 07 او 05 ويكون 10 أرقام");
       return;
     }
+    const phoneClean = phone.replace(/\D/g,'');
     if (count === 0) {
       setErr("زيد على الأقل منتج واحد / Ajoute au moins un produit");
       return;
@@ -91,7 +92,7 @@ export default function PublicOrder() {
     try {
       const r = await api.post<{ order_number: string }>("/public/orders", {
         name: name.trim(),
-        phone: phone.trim(),
+        phone: phoneClean,
         city: city || undefined,
         address: address || undefined,
         note: note || undefined,
@@ -170,13 +171,13 @@ export default function PublicOrder() {
                           </div>
                           <div className="mt-auto">
                             {cart[p.id] ? (
-                              <div className="flex items-center justify-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                <Button variant="outline" size="lg" className="h-12 w-12" onClick={()=>add(p.id,-1)} aria-label="نقص"><Minus className="h-5 w-5"/></Button>
-                                <span className="w-10 text-center text-xl font-bold">{cart[p.id]}</span>
-                                <Button size="lg" className="h-12 w-12" onClick={()=>add(p.id,1)} aria-label="زيد"><Plus className="h-5 w-5"/></Button>
+                              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                <Button variant="outline" size="lg" className="h-14 w-14" onClick={()=>add(p.id,-1)} aria-label="نقص واحد"><Minus className="h-6 w-6"/></Button>
+                                <span className="w-12 text-center text-2xl font-bold">{cart[p.id]}</span>
+                                <Button size="lg" className="h-14 w-14" onClick={()=>add(p.id,1)} aria-label="زيد واحد"><Plus className="h-6 w-6"/></Button>
                               </div>
                             ) : (
-                              <Button size="lg" className="h-12 w-full" onClick={()=>add(p.id,1)}><Plus className="h-5 w-5 ml-2"/> أطلب دابا</Button>
+                              <Button size="lg" className="h-14 w-full text-base" onClick={()=>add(p.id,1)}><Plus className="h-5 w-5 ml-2"/> أطلب دابا</Button>
                             )}
                           </div>
                         </div>
@@ -191,15 +192,15 @@ export default function PublicOrder() {
 
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-6 w-6" /> طلبك دابا</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-6 w-6" /> طلبك</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label required>الإسم الكامل</Label>
-                <Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="كتب اسمك الكامل" className="h-12 text-base"/>
+                <Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="كتب اسمك كامل" className="h-14 text-lg"/>
               </div>
               <div>
                 <Label required>رقم الهاتف</Label>
-                <Input value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="مثال: 0612345678" className="h-12 text-base code" inputMode="tel"/>
+                <Input value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="مثال 0612345678" className="h-14 text-lg code" inputMode="tel"/>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -220,7 +221,10 @@ export default function PublicOrder() {
                 <span>{formatMoney(total)}</span>
               </div>
               {err && <FieldError>{err}</FieldError>}
-              <Button className="h-14 w-full text-lg font-bold" loading={sending} onClick={submit}>أرسل الطلبية الآن</Button>
+              {Object.keys(cart).length > 0 && (
+                <Button variant="outline" size="lg" className="h-12 w-full" onClick={()=>setCart({})}>مسح الطلبية</Button>
+              )}
+              <Button className="h-16 w-full text-xl font-bold" loading={sending} onClick={submit}>أرسل الطلبية الآن</Button>
             </CardContent>
           </Card>
         </div>
