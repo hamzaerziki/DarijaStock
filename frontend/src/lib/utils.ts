@@ -5,11 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatMoney(value: string | number | null | undefined, currency = "MAD") {
-  const n = typeof value === "string" ? Number(value) : value;
-  if (n === null || n === undefined || Number.isNaN(n as number)) return `0.00 ${currency}`;
-  return `${(n as number).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
-}
+// Money helpers live in lib/money.ts; re-exported here for backward compatibility.
+export { toCents, formatMoney, centsToMoney } from "./money";
 
 export function formatQty(value: string | number | null | undefined) {
   const n = typeof value === "string" ? Number(value) : value;

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CheckCircle2, AlertTriangle, XCircle, X } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ToastTone = "success" | "error" | "warning" | "info";
@@ -26,23 +26,28 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ push }}>
       {children}
-      <div className="fixed bottom-4 left-4 z-[60] flex w-80 flex-col gap-2">
+      <div className="fixed bottom-4 left-4 z-[60] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2" role="region" aria-live="polite">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={cn(
-              "flex items-start gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg animate-slide-in",
-              t.tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-800",
-              t.tone === "error" && "border-red-200 bg-red-50 text-red-800",
-              t.tone === "warning" && "border-amber-200 bg-amber-50 text-amber-800",
-              t.tone === "info" && "border-slate-200 bg-white text-slate-700"
+              "flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-dropdown animate-slide-in",
+              t.tone === "success" && "border-[#BFE9DB] bg-success-soft text-success-text",
+              t.tone === "error" && "border-[#F6CFCF] bg-danger-soft text-danger-text",
+              t.tone === "warning" && "border-[#F3E0B5] bg-warning-soft text-warning-text",
+              t.tone === "info" && "border-[#CFE0FB] bg-info-soft text-info-text"
             )}
           >
             {t.tone === "success" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
             {t.tone === "error" && <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
             {t.tone === "warning" && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
-            <span className="flex-1">{t.message}</span>
-            <button onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))} className="opacity-60 hover:opacity-100">
+            {t.tone === "info" && <Info className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span className="flex-1 leading-relaxed">{t.message}</span>
+            <button
+              onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}
+              className="rounded opacity-60 transition-opacity hover:opacity-100"
+              aria-label="إغلاق الإشعار"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

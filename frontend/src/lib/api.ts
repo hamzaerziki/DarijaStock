@@ -18,7 +18,10 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401 && !error.config?.url?.includes("/auth/login")) {
       localStorage.removeItem(TOKEN_KEY);
-      if (window.location.pathname !== "/login") window.location.href = "/login";
+      if (window.location.pathname !== "/login") {
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?next=${next}`;
+      }
     }
     return Promise.reject(error);
   }

@@ -1,17 +1,21 @@
-import { useState } from 'react';
-import { api, apiError } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input, Label, FieldError } from '@/components/ui/input';
-import { useToast } from '@/components/ui/toast';
-import { Search, Package, FileText } from 'lucide-react';
-import { formatMoney, formatDate } from '@/lib/utils';
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input, Label, FieldError } from "@/components/ui/input";
+import { PageLoader } from "@/components/ui/table";
+import { StatusBadge } from "@/components/StatusBadges";
+import { formatMoney, formatDate } from "@/lib/utils";
+import { isValidPhone, normalizePhone } from "@/lib/validators";
+import { useSubmitLock } from "@/hooks/useSubmitLock";
+import { Search, Package, FileText, ArrowRight, ClipboardList } from "lucide-react";
+import { PublicShell } from "@/components/public/PublicShell";
+import { StatusTimeline } from "@/components/public/StatusTimeline";
 
 type Item = {
   id: number;
-  product_id?: number;
-  raw_text?: string;
-  unit_code?: string;
+  raw_text?: string | null;
+  unit_code?: string | null;
   quantity: string;
   unit_price: string;
   line_total: string;
@@ -22,142 +26,190 @@ type Order = {
   order_number: string;
   status: string;
   source: string;
-  customer?: { name: string; phone?: string };
-  total: string;
+  customer?: { name: string; phone?: string | null } | null;
   subtotal: string;
+  tax_total: string;
+  total: string;
+  currency: string;
   items: Item[];
-  created_at?: string;
+  created_at?: string | null;
 };
 
-const statusMap: Record<string, { ar: string; color: string }> = {
-  new: { ar: '????', color: 'bg-slate-100 text-slate-800' },
-  needs_review: { ar: '?? ????????', color: 'bg-amber-100 text-amber-800' },
-  confirmed: { ar: '????', color: 'bg-blue-100 text-blue-800' },
-  reserved: { ar: '?????', color: 'bg-indigo-100 text-indigo-800' },
-  preparing: { ar: '??? ??????', color: 'bg-violet-100 text-violet-800' },
-  fulfilled: { ar: '?????', color: 'bg-emerald-100 text-emerald-800' },
-  cancelled: { ar: '????', color: 'bg-rose-100 text-rose-800' },
-};
+const NOT_FOUND = "ما لقيناش طلب بهاد الرقم ورقم الهاتف. تأكد من المعلومات وعاود المحاولة.";
 
 export default function TrackOrder() {
-  const { push } = useToast();
-  const [orderNumber, setOrderNumber] = useState('');
-  const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as { orderNumber?: string } | null)?.orderNumber || "";
+
+  const [orderNumber, setOrderNumber] = useState(prefill);
+  const [phone, setPhone] = useState("");
+  const [err, setErr] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
+  const { busy: loading, run } = useSubmitLock();
 
   async function search() {
-    setErr('');
+    setErr("");
     setOrder(null);
-    if (!orderNumber.trim() || !/^0[5-7]\d{8}$/.test(phone.replace(/\D/g, ''))) {
-      setErr('???? ??? ??????? ???? ???? ????');
+    if (!orderNumber.trim() || !isValidPhone(phone)) {
+      setErr("اكتب رقم الطلب ورقم هاتف صحيح باش نلقاو الطلب ديالك");
       return;
     }
-    setLoading(true);
-    try {
-      const r = await api.post<Order>('/public/orders/track', {
-        order_number: orderNumber.trim(),
-        phone: phone.replace(/\D/g, ''),
-      });
-      setOrder(r.data);
-    } catch (e) {
-      setErr(apiError(e));
-    } finally {
-      setLoading(false);
-    }
+    await run(async () => {
+      try {
+        const r = await api.post<Order>("/public/orders/track", {
+          order_number: orderNumber.trim(),
+          phone: normalizePhone(phone),
+        });
+        setOrder(r.data);
+      } catch {
+        // Single generic message: never echo backend text for a missing order.
+        setErr(NOT_FOUND);
+      }
+    });
   }
 
   return (
-    <div className='min-h-screen bg-slate-100'>
-      <header className='border-b border-slate-200 bg-white'>
-        <div className='mx-auto flex max-w-2xl items-center gap-2 px-4 py-4'>
-          <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700'>
-            <Search className='h-5 w-5' />
-          </div>
+    <PublicShell
+      end={
+        <Button variant="outline" size="sm" className="h-10 gap-2" onClick={() => navigate("/public/order")}>
+          <ArrowRight className="h-4 w-4" aria-hidden /> طلب جديد
+        </Button>
+      }
+    >
+      <div className="mx-auto max-w-2xl space-y-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <ClipboardList className="h-5 w-5" aria-hidden />
+          </span>
           <div>
-            <h1 className='text-lg font-bold text-slate-900'>???? ????</h1>
-            <p className='text-xs text-slate-500'>??? ???? ???? ?????</p>
+            <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">تبع الطلب ديالك</h1>
+            <p className="text-xs text-slate-500">دخل رقم الطلب ورقم الهاتف باش تشوف واش توصل</p>
           </div>
         </div>
-      </header>
 
-      <main className='mx-auto max-w-2xl p-4 space-y-4'>
-        <Card>
-          <CardHeader>
-            <CardTitle className='flex items-center gap-2'>
-              <FileText className='h-5 w-5' /> ????? ?????????
-            </CardTitle>
-          </CardHeader>
-          <CardContent className='space-y-3'>
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-900">
+            <FileText className="h-5 w-5 text-primary" aria-hidden /> معلومات الطلب
+          </h2>
+          <div className="grid gap-4">
             <div>
-              <Label required>??? ???????</Label>
-              <Input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder='????: CMD-202610-00001' className='h-12 text-base code' />
+              <Label required htmlFor="tr-number">رقم الطلب</Label>
+              <Input
+                id="tr-number"
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+                placeholder="مثال: CMD-202610-00001"
+                className="code h-12 text-base"
+                dir="ltr"
+              />
             </div>
             <div>
-              <Label required>??? ??????</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder='????: 0612345678' className='h-12 text-base code' inputMode='tel' />
+              <Label required htmlFor="tr-phone">رقم الهاتف</Label>
+              <Input
+                id="tr-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && search()}
+                placeholder="مثال: 0612345678"
+                className="code h-12 text-base"
+                inputMode="tel"
+                dir="ltr"
+              />
             </div>
-            {err && <FieldError>{err}</FieldError>}
-            <Button className='h-12 w-full' loading={loading} onClick={search}>
-              ???
+            <div role="alert">{err && <FieldError>{err}</FieldError>}</div>
+            <Button size="lg" className="h-12 w-full gap-2" loading={loading} disabled={loading} onClick={search}>
+              <Search className="h-4 w-4" aria-hidden /> تبع الطلب
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+
+        {loading && <PageLoader />}
 
         {order && (
-          <Card>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <Package className='h-5 w-5' /> ?????? ???????
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='grid grid-cols-2 gap-3 text-sm'>
-                <div className='rounded-lg bg-slate-50 p-3'>
-                  <p className='text-slate-500'>??? ???????</p>
-                  <p className='font-bold code'>{order.order_number}</p>
-                </div>
-                <div className='rounded-lg bg-slate-50 p-3'>
-                  <p className='text-slate-500'>??????</p>
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusMap[order.status]?.color || 'bg-slate-100 text-slate-800'}`}>
-                    {statusMap[order.status]?.ar || order.status}
-                  </span>
-                </div>
-                <div className='rounded-lg bg-slate-50 p-3'>
-                  <p className='text-slate-500'>???????</p>
-                  <p className='font-bold'>{formatMoney(order.total)}</p>
-                </div>
-                <div className='rounded-lg bg-slate-50 p-3'>
-                  <p className='text-slate-500'>???????</p>
-                  <p className='text-slate-700'>{formatDate(order.created_at)}</p>
-                </div>
-                {order.customer?.name && (
-                  <div className='col-span-2 rounded-lg bg-slate-50 p-3'>
-                    <p className='text-slate-500'>??????</p>
-                    <p className='font-medium'>{order.customer.name}</p>
-                  </div>
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                <Package className="h-5 w-5 text-primary" aria-hidden /> تفاصيل الطلب
+              </h2>
+              <StatusBadge status={order.status} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <Box label="رقم الطلب">
+                <span className="code tnum font-bold" dir="ltr">{order.order_number}</span>
+              </Box>
+              <Box label="المجموع النهائي">
+                <span className="tnum font-bold">{formatMoney(order.total, order.currency || "MAD")}</span>
+              </Box>
+              <Box label="تاريخ الطلب">
+                <span className="text-slate-700">{formatDate(order.created_at)}</span>
+              </Box>
+              {order.customer?.name && (
+                <Box label="الزبون" wide>
+                  <span className="font-medium">{order.customer.name}</span>
+                </Box>
+              )}
+            </div>
+
+            <div className="mt-5">
+              <h3 className="mb-3 text-sm font-semibold text-slate-900">مسار الطلب</h3>
+              <StatusTimeline status={order.status} />
+            </div>
+
+            <div className="mt-5">
+              <h3 className="mb-2 text-sm font-semibold text-slate-900">المنتوجات</h3>
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-100">
+                {order.items.length === 0 ? (
+                  <p className="px-3 py-4 text-center text-sm text-slate-500">ما كاين حتى منتوج فهاد الطلب.</p>
+                ) : (
+                  order.items.map((it) => (
+                    <div key={it.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-900">{it.raw_text || "منتوج"}</p>
+                        <p className="tnum mt-0.5 text-xs text-slate-500">
+                          {it.quantity} {it.unit_code ? `× ${it.unit_code}` : ""} · {formatMoney(it.unit_price)}
+                        </p>
+                      </div>
+                      <div className="tnum ms-3 shrink-0 font-semibold text-slate-900">{formatMoney(it.line_total, order.currency || "MAD")}</div>
+                    </div>
+                  ))
                 )}
               </div>
-
-              <div>
-                <p className='mb-2 font-medium'>????????</p>
-                <div className='divide-y divide-slate-100 rounded-lg border border-slate-100'>
-                  {order.items.map((it) => (
-                    <div key={it.id} className='flex items-center justify-between px-3 py-2 text-sm'>
-                      <div>
-                        <p>{it.raw_text}</p>
-                        <p className='text-xs text-slate-400'>{it.quantity} � {formatMoney(it.unit_price)}</p>
-                      </div>
-                      <div className='font-medium'>{formatMoney(it.line_total)}</div>
-                    </div>
-                  ))}
+              <div className="mt-3 space-y-1.5 text-sm">
+                <Row label="المجموع الفرعي" value={formatMoney(order.subtotal, order.currency || "MAD")} />
+                <Row label="الضريبة" value={formatMoney(order.tax_total, order.currency || "MAD")} />
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900">
+                  <span>المجموع النهائي</span>
+                  <span className="tnum">{formatMoney(order.total, order.currency || "MAD")}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <Button variant="outline" size="lg" className="mt-5 h-12 w-full gap-2" onClick={() => navigate("/public/order")}>
+              <ArrowRight className="h-4 w-4" aria-hidden /> سيفط طلب جديد
+            </Button>
+          </section>
         )}
-      </main>
+      </div>
+    </PublicShell>
+  );
+}
+
+function Box({ label, children, wide = false }: { label: string; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className={`rounded-lg bg-[#F7FAFC] p-3 ${wide ? "col-span-2 sm:col-span-3" : ""}`}>
+      <p className="text-xs text-slate-500">{label}</p>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-slate-500">{label}</span>
+      <span className="tnum font-medium text-slate-900">{value}</span>
     </div>
   );
 }

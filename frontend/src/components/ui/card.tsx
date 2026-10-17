@@ -7,11 +7,16 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4", className)} {...props} />;
+  return (
+    <div
+      className={cn("flex items-center justify-between gap-4 border-b border-[#EDF1F6] px-5 py-4", className)}
+      {...props}
+    />
+  );
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-base font-semibold text-slate-800", className)} {...props} />;
+  return <h3 className={cn("text-[17px] font-semibold text-slate-900", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -19,17 +24,17 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 }
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium leading-none",
   {
     variants: {
       tone: {
-        gray: "bg-slate-100 text-slate-600",
-        teal: "bg-teal-100 text-teal-700",
-        green: "bg-emerald-100 text-emerald-700",
-        amber: "bg-amber-100 text-amber-700",
-        red: "bg-red-100 text-red-700",
-        blue: "bg-blue-100 text-blue-700",
-        navy: "bg-slate-800 text-white",
+        gray: "bg-[#EDF2F7] text-[#64748B]",
+        teal: "bg-primary-soft text-primary",
+        green: "bg-success-soft text-success-text",
+        amber: "bg-warning-soft text-warning-text",
+        red: "bg-danger-soft text-danger-text",
+        blue: "bg-info-soft text-info-text",
+        navy: "bg-navy text-white",
       },
     },
     defaultVariants: { tone: "gray" },

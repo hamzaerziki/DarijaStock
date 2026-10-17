@@ -1,15 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { api, apiError, Page } from "@/lib/api";
+import { api, Page } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Pagination, EmptyState, PageLoader } from "@/components/ui/table";
-import { useToast } from "@/components/ui/toast";
 import { Search, Plus, FileText, ClipboardList } from "lucide-react";
-import { OrderStatus } from "@/components/StatusBadges";
-import { formatMoney } from "@/lib/utils";
+import { StatusBadge, ComingSoon } from "@/components/StatusBadges";
+import { DataTable, type Column } from "@/components/data/DataTable";
+import { useListPage } from "@/hooks/useListPage";
+import { formatMoney, formatDate } from "@/lib/utils";
+import { ORDER_STATUS, ORDER_STATUS_FILTERS } from "@/lib/status";
 
 type Order = {
   id: number;
@@ -21,28 +22,36 @@ type Order = {
 };
 
 export default function Orders() {
-  const [items, setItems] = useState<Order[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { push } = useToast();
+  const list = useListPage<Order>({
+    fetcher: (params, signal) => api.get<Page<Order>>("/orders", { params, signal }).then((r) => r.data),
+    filterKeys: ["status_filter"],
+  });
+  const { items, loading, page, pageSize, total, q, draftQ, setDraftQ, filters, submitSearch, setFilter, setPage, clearFilters, filtered } = list;
 
-  async function load() {
-    setLoading(true);
-    try {
-      const r = await api.get<Page<Order>>("/orders", { params: { page, page_size: 20, q: q || undefined, status_filter: status || undefined } });
-      setItems(r.data.items);
-      setTotal(r.data.total);
-    } catch (e) {
-      push(apiError(e), "error");
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => { load(); }, [page, status]); // q on search button
+  const columns: Column<Order>[] = [
+    {
+      key: "number",
+      header: "رقم",
+      priority: "primary",
+      cell: (o) => <span className="code font-semibold text-slate-900">{o.order_number}</span>,
+    },
+    { key: "date", header: "التاريخ", cell: (o) => <span className="text-slate-500">{formatDate(o.created_at)}</span> },
+    { key: "customer", header: "الزبون", cell: (o) => <span className="max-w-[16rem] truncate">{o.customer?.name || "—"}</span> },
+    {
+      key: "status",
+      header: "الحالة",
+      priority: "badge",
+      cell: (o) => <StatusBadge status={o.status} />,
+    },
+    {
+      key: "total",
+      header: "المجموع",
+      align: "end",
+      tabular: true,
+      cell: (o) => <span className="font-medium">{formatMoney(o.total)}</span>,
+    },
+  ];
 
   return (
     <>
@@ -55,62 +64,69 @@ export default function Orders() {
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث: رقم / اسم الزبون / مرجع" className="w-56" />
-              <Button variant="outline" size="sm" onClick={() => { setPage(1); load(); }}>
+              <Input
+                value={draftQ}
+                onChange={(e) => setDraftQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitSearch()}
+                placeholder="بحث: رقم / اسم الزبون / مرجع"
+                className="w-56"
+                aria-label="بحث في الكوموندات"
+              />
+              <Button variant="outline" onClick={submitSearch}>
                 <Search className="h-4 w-4" /> بحث
               </Button>
             </div>
-            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+            <Select
+              value={filters.status_filter}
+              onChange={(e) => setFilter("status_filter", e.target.value)}
+              aria-label="تصفية حسب الحالة"
+            >
               <option value="">كل الحالات</option>
-              <option value="draft">مشروع</option>
-              <option value="confirmed">مأكد</option>
-              <option value="fulfilled">مسلّم</option>
-              <option value="cancelled">ملغى</option>
-              <option value="invoiced">مفوتر</option>
+              {ORDER_STATUS_FILTERS.map((s) => (
+                <option key={s} value={s}>
+                  {ORDER_STATUS[s].label}
+                </option>
+              ))}
             </Select>
-            <Button size="sm" onClick={() => push("فتح محرر إضافة كوموند يدوي سيضاف لاحقا", "info")}>
-              <Plus className="h-4 w-4" /> كوموند جديد
-            </Button>
+            <span title="هاد الميزة غادي تتزاد فمرحلة قادمة" className="inline-flex">
+              <Button disabled aria-disabled>
+                <Plus className="h-4 w-4" /> كوموند جديد <ComingSoon />
+              </Button>
+            </span>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <PageLoader />
           ) : items.length === 0 ? (
-            <EmptyState title="ما كاينش كوموندات" hint="ابدأ باستيراد مسجات الواتساب أو إنشاء كوموند يدوي" />
+            <EmptyState
+              title={filtered ? "ما كاينش نتائج مطابقة" : "ما كاينش كوموندات"}
+              hint={filtered ? "بدّل البحث أو التصفية" : "ابدأ باستيراد مسجات الواتساب"}
+            />
           ) : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>رقم</th>
-                    <th>التاريخ</th>
-                    <th>الزبون</th>
-                    <th>الحالة</th>
-                    <th className="text-left">المجموع</th>
-                    <th className="text-left">أفعال</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((o) => (
-                    <tr key={o.id}>
-                      <td className="code font-medium text-slate-900">{o.order_number}</td>
-                      <td className="text-slate-500">{o.created_at ? new Date(o.created_at).toLocaleString("fr-FR") : "—"}</td>
-                      <td className="max-w-xs truncate">{o.customer?.name || "—"}</td>
-                      <td><OrderStatus status={o.status} /></td>
-                      <td className="text-left font-medium">{formatMoney(o.total)}</td>
-                      <td className="text-left">
-                        <Button variant="ghost" size="sm" onClick={() => navigate(`/orders/${o.id}`)}>
-                          <FileText className="h-4 w-4" /> تفاصيل
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {filtered && (
+                <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2 text-[13px] text-slate-500">
+                  <span>{total} نتيجة مطابقة للتصفية الحالية</span>
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    مسح التصفية
+                  </Button>
+                </div>
+              )}
+              <DataTable
+                columns={columns}
+                items={items}
+                rowKey={(o) => o.id}
+                onRowClick={(o) => navigate(`/orders/${o.id}`)}
+                rowActions={(o) => (
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/orders/${o.id}`)} aria-label={`تفاصيل الكوموند ${o.order_number}`}>
+                    <FileText className="h-4 w-4" /> تفاصيل
+                  </Button>
+                )}
+              />
+            </>
           )}
-          <Pagination page={page} pageSize={20} total={total} onChange={setPage} />
+          <Pagination page={page} pageSize={pageSize} total={total} onChange={setPage} />
         </CardContent>
       </Card>
     </>

@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react";
-import { api, apiError, Page } from "@/lib/api";
+import { useMemo, useState } from "react";
+import { api, apiError } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
-import { Pagination, EmptyState, PageLoader } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { MessagesSquare, Send, AlertCircle } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/card";
-import { formatMoney, formatQty } from "@/lib/utils";
+import { useSubmitLock } from "@/hooks/useSubmitLock";
+import { splitMessages } from "@/lib/validators";
+import { formatQty } from "@/lib/utils";
 
 type ParsedItem = { raw_text: string; product_text: string; quantity?: string; unit?: string };
 type ParsedPayload = {
@@ -43,33 +45,27 @@ type Batch = {
 export default function Import() {
   const { push } = useToast();
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { busy, run } = useSubmitLock();
   const [batch, setBatch] = useState<Batch | null>(null);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
-
-  async function parsePreview() {
-    // For now just show that import works via process batch (backend). Quick preview via parse? backend has /parsers/parse
-    push("استعمال زر المعالجة لإنشاء كوموندات من الرسائل", "info");
-  }
+  const messageCount = useMemo(() => splitMessages(text).length, [text]);
 
   async function processBatch() {
-    if (!text.trim()) return push("أدخل مسجات الواتساب على الأقل", "error");
-    setLoading(true);
+    const messages = splitMessages(text);
+    if (messages.length === 0) return push("أدخل مسجات الواتساب على الأقل", "error");
     setBatch(null);
-    try {
-      const messages = text
-        .split(/\n\s*\n|[\r\n]{2,}/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => ({ raw_text: s }));
-      const r = await api.post<Batch>("/import/messages", { messages, label: `WA-${Date.now()}` });
-      setBatch(r.data);
-      push(`تم المعالجة: ${r.data.orders_created} كوموند / ${r.data.duplicates} مكرر`, "success");
-    } catch (e) {
-      push(apiError(e), "error");
-    } finally {
-      setLoading(false);
-    }
+    await run(async () => {
+      try {
+        const r = await api.post<Batch>("/import/messages", {
+          messages: messages.map((s) => ({ raw_text: s })),
+          label: `WA-${Date.now()}`,
+        });
+        setBatch(r.data);
+        push(`تم المعالجة: ${r.data.orders_created} كوموند / ${r.data.duplicates} مكرر`, "success");
+      } catch (e) {
+        push(apiError(e), "error");
+      }
+    });
   }
 
   return (
@@ -83,12 +79,17 @@ export default function Import() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={14} placeholder={"مثال:\nسلام، 2 كرتونة كوكا لتر 1\n5 كيلو سكر"} />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={processBatch} loading={loading}>
+            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={14} placeholder={"مثال:\nسلام، 2 كرتونة كوكا لتر 1\n5 كيلو سكر"} aria-label="نص الرسائل" />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={processBatch} loading={busy}>
                 <Send className="h-4 w-4" /> معالجة وإنشاء كوموندات
               </Button>
-              <Button variant="outline" onClick={() => setText("")}>مسح</Button>
+              <Button variant="outline" onClick={() => setText("")} disabled={!text}>
+                مسح
+              </Button>
+              <span className="text-[13px] text-slate-500" aria-live="polite">
+                عدد الرسائل: {messageCount}
+              </span>
             </div>
           </CardContent>
         </Card>

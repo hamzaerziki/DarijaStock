@@ -4,13 +4,15 @@ import { api, apiError } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/card";
 import { PageLoader, EmptyState } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { OrderStatus } from "@/components/StatusBadges";
+import { StatusBadge, MatchStatusBadge } from "@/components/StatusBadges";
+import { DataTable, type Column } from "@/components/data/DataTable";
+import { useSubmitLock } from "@/hooks/useSubmitLock";
+import { statusLabel } from "@/lib/status";
 import { formatMoney, formatQty, formatDate } from "@/lib/utils";
-import { CheckCircle2, Truck, XCircle, FileText, ArrowRight, Clock } from "lucide-react";
+import { CheckCircle2, Truck, XCircle, FileText, ArrowRight, Clock, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type OrderItem = {
@@ -27,6 +29,12 @@ type Order = {
 };
 type HistoryRow = { id: number; from_status?: string; to_status: string; note?: string; created_at?: string };
 
+// Backend-driven action gates (verified against services/orders.py + invoices.py).
+const CAN_CONFIRM = ["new", "needs_review"];
+const CAN_FULFILL = ["confirmed", "reserved", "preparing"];
+const CAN_INVOICE = ["confirmed", "reserved", "preparing", "fulfilled"];
+const CAN_CANCEL_EXCLUDE = ["fulfilled", "cancelled"];
+
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,7 +43,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<Order | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmitLock();
   const [confirmAction, setConfirmAction] = useState<null | { type: "confirm" | "fulfill" | "cancel"; title: string; message: string }>(null);
 
   const perms = user?.permissions ?? [];
@@ -57,42 +65,65 @@ export default function OrderDetail() {
       setLoading(false);
     }
   }
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
 
   async function doAction(type: "confirm" | "fulfill" | "cancel") {
     if (!order) return;
-    setBusy(true);
-    try {
-      await api.post(`/orders/${order.id}/${type}`, {});
-      push(
-        type === "confirm" ? "تم التأكيد والحجز" : type === "fulfill" ? "تم التسليم من المخزن" : "تم الإلغاء",
-        "success"
-      );
-      setConfirmAction(null);
-      load();
-    } catch (e) {
-      push(apiError(e), "error");
-    } finally {
-      setBusy(false);
-    }
+    await run(async () => {
+      try {
+        await api.post(`/orders/${order.id}/${type}`, {});
+        push(
+          type === "confirm" ? "تم التأكيد والحجز" : type === "fulfill" ? "تم التسليم من المخزن" : "تم الإلغاء",
+          "success",
+        );
+        setConfirmAction(null);
+        load();
+      } catch (e) {
+        push(apiError(e), "error");
+      }
+    });
   }
 
   async function createInvoice() {
     if (!order) return;
-    setBusy(true);
-    try {
-      const inv = await api.post(`/invoices/from-order/${order.id}`);
-      push("تم إنشاء مسودة الفاتورة", "success");
-      navigate(`/invoices?highlight=${inv.data.id}`);
-    } catch (e) {
-      push(apiError(e), "error");
-    } finally {
-      setBusy(false);
-    }
+    await run(async () => {
+      try {
+        const inv = await api.post(`/invoices/from-order/${order.id}`);
+        push("تم إنشاء مسودة الفاتورة", "success");
+        navigate(`/invoices?highlight=${inv.data.id}`);
+      } catch (e) {
+        push(apiError(e), "error");
+      }
+    });
   }
+
+  const columns: Column<OrderItem>[] = [
+    {
+      key: "product",
+      header: "المنتج / النص",
+      priority: "primary",
+      cell: (it) => <span className="max-w-[18rem] truncate">{it.raw_text || `#${it.product_id}`}</span>,
+    },
+    { key: "unit", header: "الوحدة", cell: (it) => it.unit_code || "—" },
+    { key: "qty", header: "الكمية", align: "end", tabular: true, cell: (it) => formatQty(it.quantity) },
+    { key: "price", header: "الثمن", align: "end", tabular: true, cell: (it) => formatMoney(it.unit_price) },
+    {
+      key: "total",
+      header: "المجموع",
+      align: "end",
+      tabular: true,
+      cell: (it) => <span className="font-medium">{formatMoney(it.line_total)}</span>,
+    },
+    { key: "match", header: "المطابقة", priority: "badge", cell: (it) => <MatchStatusBadge status={it.match_status} /> },
+  ];
 
   if (loading) return <PageLoader />;
   if (!order) return <EmptyState title="الكوموند ماموجوداش" />;
+
+  const showConfirm = CAN_CONFIRM.includes(order.status) && can("approve_orders");
+  const showFulfill = CAN_FULFILL.includes(order.status) && can("dispatch_stock");
+  const showInvoice = CAN_INVOICE.includes(order.status) && can("prepare_invoice_drafts");
+  const showCancel = !CAN_CANCEL_EXCLUDE.includes(order.status) && can("reject_orders");
 
   return (
     <>
@@ -111,46 +142,17 @@ export default function OrderDetail() {
           <Card>
             <CardHeader>
               <CardTitle>العناصر</CardTitle>
-              <OrderStatus status={order.status} />
+              <StatusBadge status={order.status} />
             </CardHeader>
             <CardContent className="p-0">
-              <div className="table-wrap border-0">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>المنتج / النص</th>
-                      <th>الوحدة</th>
-                      <th className="text-left">الكمية</th>
-                      <th className="text-left">الثمن</th>
-                      <th className="text-left">المجموع</th>
-                      <th>المطابقة</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {order.items.map((it) => (
-                      <tr key={it.id}>
-                        <td className="max-w-xs truncate">{it.raw_text || `#${it.product_id}`}</td>
-                        <td>{it.unit_code || "—"}</td>
-                        <td className="text-left">{formatQty(it.quantity)}</td>
-                        <td className="text-left">{formatMoney(it.unit_price)}</td>
-                        <td className="text-left font-medium">{formatMoney(it.line_total)}</td>
-                        <td>
-                          <Badge tone={it.match_status === "matched" ? "green" : it.match_status === "ambiguous" ? "amber" : "gray"}>
-                            {it.match_status}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable columns={columns} items={order.items} rowKey={(it) => it.id} />
               <div className="space-y-1 border-t border-slate-100 p-4 text-sm">
                 <Row label="المجموع الفرعي" value={formatMoney(order.subtotal)} />
                 <Row label="الخصم" value={formatMoney(order.discount_total)} />
                 <Row label="الضريبة" value={formatMoney(order.tax_total)} />
                 <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900">
                   <span>المجموع</span>
-                  <span>{formatMoney(order.total, order.currency)}</span>
+                  <span className="tnum">{formatMoney(order.total, order.currency)}</span>
                 </div>
               </div>
             </CardContent>
@@ -158,7 +160,9 @@ export default function OrderDetail() {
 
           {(order.customer_note || order.internal_note) && (
             <Card>
-              <CardHeader><CardTitle>ملاحظات</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>ملاحظات</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2 text-sm text-slate-600">
                 {order.customer_note && <p><span className="font-medium text-slate-800">ملاحظة الزبون: </span>{order.customer_note}</p>}
                 {order.internal_note && <p><span className="font-medium text-slate-800">ملاحظة داخلية: </span>{order.internal_note}</p>}
@@ -169,57 +173,76 @@ export default function OrderDetail() {
 
         <div className="space-y-4">
           <Card>
-            <CardHeader><CardTitle>الزبون</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>الزبون</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-1 text-sm text-slate-600">
               <p className="text-base font-semibold text-slate-900">{order.customer?.name || "— بدون زبون —"}</p>
-              {order.customer?.code && <p className="code">كود: {order.customer.code}</p>}
-              {order.customer?.phone && <p className="code">هاتف: {order.customer.phone}</p>}
+              {order.customer?.code && <p className="code">كود: <span dir="ltr">{order.customer.code}</span></p>}
+              {order.customer?.phone && <p className="code">هاتف: <span dir="ltr">{order.customer.phone}</span></p>}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>أفعال</CardTitle></CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {order.status === "draft" && can("approve_orders") && (
+            <CardHeader>
+              <CardTitle>أفعال</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2" aria-live="polite">
+              {showConfirm && (
                 <Button onClick={() => setConfirmAction({ type: "confirm", title: "تأكيد الكوموند", message: "غادي يتحجز الستوك للكوموند. متأكد؟" })} disabled={busy}>
                   <CheckCircle2 className="h-4 w-4" /> تأكيد و حجز الستوك
                 </Button>
               )}
-              {(order.status === "confirmed" || order.status === "preparing") && can("dispatch_stock") && (
+              {showFulfill && (
                 <Button variant="navy" onClick={() => setConfirmAction({ type: "fulfill", title: "تسليم الكوموند", message: "غادي يخرج الستوك من المخزن. متأكد؟" })} disabled={busy}>
                   <Truck className="h-4 w-4" /> تسليم
                 </Button>
               )}
-              {(order.status === "confirmed" || order.status === "fulfilled" || order.status === "invoiced") && can("prepare_invoice_drafts") && (
+              {showInvoice && (
                 <Button variant="outline" onClick={createInvoice} disabled={busy}>
                   <FileText className="h-4 w-4" /> إنشاء مسودة فاتورة
                 </Button>
               )}
-              {order.status !== "fulfilled" && order.status !== "cancelled" && can("reject_orders") && (
+              {showCancel && (
                 <Button variant="destructive" onClick={() => setConfirmAction({ type: "cancel", title: "إلغاء الكوموند", message: "غادي يتحرر الستوك المحجوز. متأكد؟" })} disabled={busy}>
                   <XCircle className="h-4 w-4" /> إلغاء
                 </Button>
               )}
-              {order.status === "draft" && !can("approve_orders") && (
-                <p className="text-xs text-slate-400">ما عندكش صلاحية التأكيد.</p>
+              {CAN_CONFIRM.includes(order.status) && !can("approve_orders") && (
+                <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <ShieldAlert className="h-3.5 w-3.5" /> ما عندكش صلاحية التأكيد.
+                </p>
+              )}
+              {!showConfirm && !showFulfill && !showInvoice && !showCancel && (
+                <p className="text-xs text-slate-400">ما كاين حتى فعل متاح لحالة "{statusLabel(order.status)}".</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-4 w-4" /> سجل الحالات</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-4 w-4" /> سجل الحالات
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
-              {history.length === 0 ? <p className="text-sm text-slate-400">ما كاينش</p> : history.map((h) => (
-                <div key={h.id} className="flex items-start gap-2 text-xs">
-                  <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-teal-500" />
-                  <div>
-                    <p className="text-slate-700">
-                      {h.from_status ? `${h.from_status} → ` : ""}<span className="font-medium">{h.to_status}</span>
-                    </p>
-                    <p className="text-slate-400">{formatDate(h.created_at)}</p>
+              {history.length === 0 ? (
+                <p className="text-sm text-slate-400">ما كاينش</p>
+              ) : (
+                history.map((h) => (
+                  <div key={h.id} className="flex items-start gap-2 text-xs">
+                    <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-teal-500" />
+                    <div>
+                      <p className="text-slate-700">
+                        {h.from_status ? `${statusLabel(h.from_status)} → ` : ""}
+                        <span className="font-medium">{statusLabel(h.to_status)}</span>
+                      </p>
+                      {h.note && <p className="text-slate-500">{h.note}</p>}
+                      <p className="text-slate-400">{formatDate(h.created_at)}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
@@ -242,7 +265,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between text-slate-600">
       <span>{label}</span>
-      <span>{value}</span>
+      <span className="tnum">{value}</span>
     </div>
   );
 }

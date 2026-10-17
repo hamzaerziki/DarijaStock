@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
-import { api, apiError, Page } from "@/lib/api";
+import { api, Page } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pagination, EmptyState, PageLoader } from "@/components/ui/table";
-import { useToast } from "@/components/ui/toast";
 import { Plus, Search, Package } from "lucide-react";
+import { Badge } from "@/components/ui/card";
+import { ComingSoon } from "@/components/StatusBadges";
+import { DataTable, type Column } from "@/components/data/DataTable";
+import { useListPage } from "@/hooks/useListPage";
 import { formatMoney } from "@/lib/utils";
 
 type Product = {
@@ -21,73 +23,79 @@ type Product = {
 };
 
 export default function Products() {
-  const { push } = useToast();
-  const [items, setItems] = useState<Product[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
+  const list = useListPage<Product>({
+    fetcher: (params, signal) => api.get<Page<Product>>("/products", { params, signal }).then((r) => r.data),
+  });
+  const { items, loading, page, pageSize, total, draftQ, setDraftQ, submitSearch, setPage, filtered, clearFilters } = list;
 
-  async function load() {
-    setLoading(true);
-    try {
-      const r = await api.get<Page<Product>>("/products", { params: { page, page_size: 20, q: q || undefined } });
-      setItems(r.data.items);
-      setTotal(r.data.total);
-    } catch (e) {
-      push(apiError(e), "error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, [page]);
+  const columns: Column<Product>[] = [
+    { key: "sku", header: "SKU", priority: "primary", cell: (p) => <span className="code font-semibold text-slate-900" dir="ltr">{p.sku}</span> },
+    { key: "name", header: "الإسم", cell: (p) => <span className="truncate">{p.name_ar || p.name}</span> },
+    { key: "category", header: "الفئة", cell: (p) => p.category || "—" },
+    { key: "unit", header: "الوحدة", cell: (p) => p.base_unit },
+    { key: "price", header: "الثمن", align: "end", tabular: true, cell: (p) => formatMoney(p.price) },
+    {
+      key: "active",
+      header: "نشط",
+      priority: "badge",
+      cell: (p) => <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "نشط" : "موقوف"}</Badge>,
+    },
+  ];
 
   return (
     <>
-      <PageHeader title="المنتجات" subtitle="إدارة المنتجات، الوحدات والبدائل" actions={
-        <Button size="sm"><Plus className="h-4 w-4"/> إضافة منتج</Button>
-      } />
+      <PageHeader
+        title="المنتجات"
+        subtitle="إدارة المنتجات، الوحدات والبدائل"
+        actions={
+          <span title="إضافة منتج غادي تتزاد فمرحلة قادمة" className="inline-flex">
+            <Button disabled aria-disabled>
+              <Plus className="h-4 w-4" /> إضافة منتج <ComingSoon />
+            </Button>
+          </span>
+        }
+      />
       <Card>
         <CardHeader className="flex-wrap gap-3">
-          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5"/> لائحة المنتجات</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" /> لائحة المنتجات
+          </CardTitle>
           <div className="flex items-center gap-2">
-            <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="بحث: SKU / الاسم" className="w-56"/>
-            <Button variant="outline" size="sm" onClick={()=>{setPage(1);load();}}><Search className="h-4 w-4"/> بحث</Button>
+            <Input
+              value={draftQ}
+              onChange={(e) => setDraftQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitSearch()}
+              placeholder="بحث: SKU / الاسم"
+              className="w-56"
+              aria-label="بحث في المنتجات"
+            />
+            <Button variant="outline" onClick={submitSearch}>
+              <Search className="h-4 w-4" /> بحث
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? <PageLoader/> : items.length===0 ? <EmptyState title="ما كاينش منتجات" hint="أضف منتج جديد"/> : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>SKU</th>
-                    <th>الإسم</th>
-                    <th>الفئة</th>
-                    <th>الوحدة</th>
-                    <th className="text-left">الثمن</th>
-                    <th>نشط</th>
-                    <th className="text-left">أفعال</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(p=>(
-                    <tr key={p.id}>
-                      <td className="code">{p.sku}</td>
-                      <td>{p.name_ar || p.name}</td>
-                      <td>{p.category||"—"}</td>
-                      <td>{p.base_unit}</td>
-                      <td className="text-left">{formatMoney(p.price)}</td>
-                      <td>{p.is_active?"نعم":"لا"}</td>
-                      <td className="text-left"><Button variant="ghost" size="sm">تفاصيل</Button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {loading ? (
+            <PageLoader />
+          ) : items.length === 0 ? (
+            <EmptyState
+              title={filtered ? "ما كاينش نتائج مطابقة" : "ما كاينش منتجات"}
+              hint={filtered ? "بدّل كلمة البحث" : "أضف منتج جديد"}
+            />
+          ) : (
+            <>
+              {filtered && (
+                <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2 text-[13px] text-slate-500">
+                  <span>{total} نتيجة مطابقة</span>
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    مسح البحث
+                  </Button>
+                </div>
+              )}
+              <DataTable columns={columns} items={items} rowKey={(p) => p.id} />
+            </>
           )}
-          <Pagination page={page} pageSize={20} total={total} onChange={setPage}/>
+          <Pagination page={page} pageSize={pageSize} total={total} onChange={setPage} />
         </CardContent>
       </Card>
     </>

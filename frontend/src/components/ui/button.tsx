@@ -3,23 +3,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-white disabled:pointer-events-none disabled:bg-[#EDF2F7] disabled:text-[#94A3B8] disabled:opacity-100",
   {
     variants: {
       variant: {
-        default: "bg-teal-700 text-white hover:bg-teal-600",
-        navy: "bg-navy text-white hover:bg-navy-800",
-        outline: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-        ghost: "text-slate-600 hover:bg-slate-100",
-        destructive: "bg-red-600 text-white hover:bg-red-500",
-        success: "bg-emerald-600 text-white hover:bg-emerald-500",
-        subtle: "bg-teal-50 text-teal-700 hover:bg-teal-100",
+        default: "bg-primary text-white hover:bg-primary-hover active:bg-primary-active",
+        navy: "bg-navy text-white hover:bg-navy-800 active:bg-navy-900",
+        outline: "border border-[#CFE3E0] bg-white text-primary hover:bg-primary-tint active:bg-primary-soft",
+        ghost: "text-slate-600 hover:bg-[#EDF4F8] hover:text-slate-900",
+        destructive: "bg-danger text-white hover:bg-[#BD3434] active:bg-[#A62D2D]",
+        success: "bg-success text-white hover:bg-[#0F7A5C] active:bg-[#0C6650]",
+        subtle: "bg-primary-soft text-primary hover:bg-primary-soft/70",
       },
       size: {
-        default: "h-9 px-4",
-        sm: "h-8 px-3 text-xs",
-        lg: "h-11 px-6 text-base",
-        icon: "h-9 w-9",
+        default: "h-[42px] px-[18px]",
+        sm: "h-9 px-3 text-[13px]",
+        lg: "h-12 px-6 text-[15px]",
+        icon: "h-[42px] w-[42px] px-0",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
@@ -38,6 +38,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       className={cn(buttonVariants({ variant, size, className }))}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
     >
       {loading && <Spinner className="h-4 w-4" />}
